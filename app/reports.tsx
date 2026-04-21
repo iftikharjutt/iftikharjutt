@@ -30,6 +30,7 @@ export default function Reports() {
   });
   const [bills, setBills] = useState<any[]>([]);
   const [recoveries, setRecoveries] = useState<any[]>([]);
+  const [shopName, setShopName] = useState('My Shop');
 
   /**
    * REFACTOR: Optimized Fetching (Performance)
@@ -40,6 +41,12 @@ export default function Reports() {
     if (tab === 'bills') fetchBills();
     if (tab === 'recoveries') fetchRecoveries();
     fetchAreas();
+    
+    // Fetch shop name dynamically for reports
+    try {
+      const nameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
+      if (nameSet?.value) setShopName(nameSet.value);
+    } catch (e) {}
   }, [tab, selectedAreaFilter]);
 
   // REFACTOR: Parameterized Query for Security
@@ -60,6 +67,29 @@ export default function Reports() {
   const totalPending = React.useMemo(() => {
     return stats.totalSales - stats.totalRecoveries;
   }, [stats]);
+
+  const fetchStats = () => {
+    try {
+      const sales = db.getAllSync('SELECT SUM(total_amount) as total FROM orders') as any;
+      const recs = db.getAllSync('SELECT SUM(amount) as total FROM recoveries') as any;
+      const customers = db.getAllSync('SELECT COUNT(*) as count FROM customers') as any;
+      const topCust = db.getAllSync(`
+        SELECT c.name, SUM(o.total_amount) as total 
+        FROM customers c 
+        JOIN orders o ON c.id = o.customer_id 
+        GROUP BY c.id 
+        ORDER BY total DESC 
+        LIMIT 5
+      `) as any[];
+
+      setStats({
+        totalSales: sales[0]?.total || 0,
+        totalRecoveries: recs[0]?.total || 0,
+        totalCustomers: customers[0]?.count || 0,
+        topCustomers: topCust,
+      });
+    } catch (e) { console.error(e); }
+  };
 
   const fetchBills = () => {
     try {
@@ -86,9 +116,10 @@ export default function Reports() {
       if (selectedAreaFilter) {
         query += ` WHERE COALESCE(c.address, 'General') = ? `;
         params.push(selectedAreaFilter);
+        query += ` ORDER BY r.timestamp DESC LIMIT 50 `;
+      } else {
+        query += ` ORDER BY area ASC, r.timestamp DESC LIMIT 100 `;
       }
-      
-      query += ` ORDER BY r.timestamp DESC LIMIT 50 `;
       
       const data = db.getAllSync(query, params);
       setRecoveries(data);
@@ -316,7 +347,7 @@ export default function Reports() {
                 <View style={styles.statMini}>
                   <Text style={styles.miniLabel}>Pending</Text>
                   <Text style={[styles.miniValue, { color: '#ef4444' }]}>
-                    Rs. {(stats.totalSales - stats.totalRecoveries).toLocaleString()}
+                    Rs. {totalPending.toLocaleString()}
                   </Text>
                 </View>
               </View>
@@ -463,13 +494,6 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '80%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
   areaItem: { flexDirection: 'row', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  areaItemText: { fontSize: 16, color: Theme.text, marginLeft: 15 },
-  closeBtn: { marginTop: 10, padding: 15, alignItems: 'center' },
-  closeBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
-  areaHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 5, marginTop: 10, marginBottom: 5 },
-  areaHeaderText: { fontSize: 14, fontWeight: 'bold', color: '#0f172a', marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 }
-});
-ing: 18, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   areaItemText: { fontSize: 16, color: Theme.text, marginLeft: 15 },
   closeBtn: { marginTop: 10, padding: 15, alignItems: 'center' },
   closeBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
