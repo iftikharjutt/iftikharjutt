@@ -44,7 +44,9 @@ export default function CustomerSelection() {
   };
 
   const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()) || 
+    (c.person_name && c.person_name.toLowerCase().includes(search.toLowerCase())) ||
+    (c.address && c.address.toLowerCase().includes(search.toLowerCase()))
   );
 
   const renderItem = ({ item }: { item: any }) => {
@@ -72,8 +74,9 @@ export default function CustomerSelection() {
           }
         }}
       >
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.name}>{item.name}</Text>
+          <Text style={styles.person}>{item.person_name || 'N/A'}</Text>
           <Text style={styles.address}>{item.address || 'Purani Galla Mandi'}</Text>
         </View>
         <View style={styles.balanceContainer}>
@@ -145,6 +148,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, elevation: 1 
   },
   name: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  person: { fontSize: 14, color: '#0f172a', fontWeight: '600', marginTop: 2 },
   address: { fontSize: 13, color: '#64748b', marginTop: 3 },
   balanceContainer: { alignItems: 'flex-end' },
   balanceLabel: { fontSize: 11, color: '#64748b', marginTop: 2 },

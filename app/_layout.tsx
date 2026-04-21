@@ -26,14 +26,14 @@ export default function RootLayout() {
 
   return (
     <Stack
-      initialRouteName="login"
+      initialRouteName="index"
       screenOptions={{
         headerStyle: { backgroundColor: '#0f172a' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
       }}
     >
-      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="add-customer" options={{ title: 'Add New Customer' }} />
       <Stack.Screen name="add-product" options={{ title: 'Add New Product' }} />

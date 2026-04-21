@@ -21,6 +21,7 @@ export default function Reports() {
   const [tab, setTab] = useState<'stats' | 'bills' | 'recoveries'>('stats');
   const [areaModalVisible, setAreaModalVisible] = useState(false);
   const [areas, setAreas] = useState<string[]>([]);
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalSales: 0,
     totalRecoveries: 0,
@@ -35,7 +36,7 @@ export default function Reports() {
     fetchBills();
     fetchRecoveries();
     fetchAreas();
-  }, []);
+  }, [selectedAreaFilter]);
 
   const fetchAreas = () => {
     try {
@@ -76,7 +77,7 @@ export default function Reports() {
         FROM orders o 
         JOIN customers c ON o.customer_id = c.id 
         ORDER BY o.timestamp DESC 
-        LIMIT 20
+        LIMIT 30
       `);
       setBills(data);
     } catch (e) { console.error(e); }
@@ -84,13 +85,21 @@ export default function Reports() {
 
   const fetchRecoveries = () => {
     try {
-      const data = db.getAllSync(`
-        SELECT r.*, c.name as customer_name 
+      let query = `
+        SELECT r.*, c.name as customer_name, COALESCE(c.address, 'General') as area 
         FROM recoveries r 
         JOIN customers c ON r.customer_id = c.id 
-        ORDER BY r.timestamp DESC 
-        LIMIT 20
-      `);
+      `;
+      let params: any[] = [];
+      
+      if (selectedAreaFilter) {
+        query += ` WHERE COALESCE(c.address, 'General') = ? `;
+        params.push(selectedAreaFilter);
+      }
+      
+      query += ` ORDER BY r.timestamp DESC LIMIT 50 `;
+      
+      const data = db.getAllSync(query, params);
       setRecoveries(data);
     } catch (e) { console.error(e); }
   };
@@ -355,18 +364,41 @@ export default function Reports() {
           </TouchableOpacity>
         ))}
 
-        {tab === 'recoveries' && recoveries.map((r, i) => (
-          <TouchableOpacity key={i} style={styles.custRow} onPress={() => printRecovery(r)}>
-            <View>
-              <Text style={styles.custName}>{r.customer_name}</Text>
-              <Text style={styles.miniLabel}>{new Date(r.timestamp).toLocaleDateString()}</Text>
+        {tab === 'recoveries' && (
+          <View>
+            <View style={styles.filterBar}>
+               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                 <TouchableOpacity 
+                   style={[styles.filterChip, !selectedAreaFilter && styles.filterChipActive]}
+                   onPress={() => setSelectedAreaFilter(null)}
+                 >
+                   <Text style={[styles.filterChipText, !selectedAreaFilter && styles.filterChipActiveText]}>All Areas</Text>
+                 </TouchableOpacity>
+                 {areas.map(area => (
+                   <TouchableOpacity 
+                     key={area}
+                     style={[styles.filterChip, selectedAreaFilter === area && styles.filterChipActive]}
+                     onPress={() => setSelectedAreaFilter(area)}
+                   >
+                     <Text style={[styles.filterChipText, selectedAreaFilter === area && styles.filterChipActiveText]}>{area}</Text>
+                   </TouchableOpacity>
+                 ))}
+               </ScrollView>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.custTotal, { color: Theme.secondary }]}>Rs. {r.amount.toLocaleString()}</Text>
-              <MaterialCommunityIcons name="printer" size={16} color={Theme.accent} />
-            </View>
-          </TouchableOpacity>
-        ))}
+            {recoveries.map((r, i) => (
+              <TouchableOpacity key={i} style={styles.custRow} onPress={() => printRecovery(r)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.custName}>{r.customer_name}</Text>
+                  <Text style={styles.miniLabel}>{r.area} • {new Date(r.timestamp).toLocaleDateString()}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[styles.custTotal, { color: Theme.secondary }]}>Rs. {r.amount.toLocaleString()}</Text>
+                  <MaterialCommunityIcons name="printer" size={16} color={Theme.accent} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       <Modal visible={areaModalVisible} transparent animationType="slide" onRequestClose={() => setAreaModalVisible(false)}>
@@ -420,6 +452,11 @@ const styles = StyleSheet.create({
   custTotal: { fontWeight: 'bold', color: Theme.primary },
   pdfBtn: { backgroundColor: Theme.accent, padding: 20, borderRadius: 20, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 30 },
   pdfBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
+  filterBar: { marginBottom: 15, paddingHorizontal: 5 },
+  filterChip: { backgroundColor: '#fff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0', elevation: 1 },
+  filterChipActive: { backgroundColor: Theme.primary, borderColor: Theme.primary },
+  filterChipText: { color: Theme.textLight, fontSize: 13, fontWeight: '600' },
+  filterChipActiveText: { color: '#fff' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 30, borderTopRightRadius: 30, maxHeight: '80%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },

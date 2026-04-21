@@ -23,14 +23,22 @@ const InputField = ({ label, icon, ...props }: any) => (
 
 export default function AddCustomer() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: '', contact: '', address: '', balance: '0' });
+  const [form, setForm] = useState({ name: '', person_name: '', contact: '', address: '', balance: '0' });
+  const [balanceType, setBalanceType] = useState<'debit' | 'credit'>('debit');
 
   const saveCustomer = () => {
-    if (!form.name) return Alert.alert("Error", "Customer Name is required");
+    if (!form.name) return Alert.alert("Error", "Shop/Business Name is required");
     try {
+      let finalBalance = parseFloat(form.balance) || 0;
+      if (balanceType === 'credit') {
+        finalBalance = -Math.abs(finalBalance);
+      } else {
+        finalBalance = Math.abs(finalBalance);
+      }
+
       db.runSync(
-        'INSERT INTO customers (name, contact, address, balance) VALUES (?, ?, ?, ?)',
-        [form.name, form.contact, form.address, parseFloat(form.balance) || 0]
+        'INSERT INTO customers (name, person_name, contact, address, balance) VALUES (?, ?, ?, ?, ?)',
+        [form.name, form.person_name, form.contact, form.address, finalBalance]
       );
       Alert.alert("Success", "Customer Profile Created");
       router.back();
@@ -44,10 +52,39 @@ export default function AddCustomer() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.formCard}>
-          <InputField label="Full Name" icon="account" placeholder="Ali Ahmed" value={form.name} onChangeText={(t: string) => setForm({...form, name: t})} />
+          <InputField label="Shop/Business Name" icon="store" placeholder="Ali Keryana Store" value={form.name} onChangeText={(t: string) => setForm({...form, name: t})} />
+          <InputField label="Person Name" icon="account" placeholder="Ali Ahmed" value={form.person_name} onChangeText={(t: string) => setForm({...form, person_name: t})} />
           <InputField label="WhatsApp Number" icon="whatsapp" placeholder="03001234567" keyboardType="phone-pad" value={form.contact} onChangeText={(t: string) => setForm({...form, contact: t})} />
           <InputField label="Shop Address" icon="map-marker" placeholder="Galla Mandi" value={form.address} onChangeText={(t: string) => setForm({...form, address: t})} />
-          <InputField label="Opening Balance (Khata)" icon="cash" placeholder="0.00" keyboardType="numeric" value={form.balance} onChangeText={(t: string) => setForm({...form, balance: t})} />
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Opening Balance</Text>
+            <View style={styles.balanceTypeRow}>
+              <TouchableOpacity 
+                style={[styles.typeBtn, balanceType === 'debit' && styles.typeBtnActive]} 
+                onPress={() => setBalanceType('debit')}
+              >
+                <Text style={[styles.typeBtnText, balanceType === 'debit' && styles.typeBtnTextActive]}>Debit (Receivable)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.typeBtn, balanceType === 'credit' && styles.typeBtnActive]} 
+                onPress={() => setBalanceType('credit')}
+              >
+                <Text style={[styles.typeBtnText, balanceType === 'credit' && styles.typeBtnTextActive]}>Credit (Advance)</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.inputWrapper}>
+              <MaterialCommunityIcons name="cash" size={20} color={Theme.textLight} style={styles.icon} />
+              <TextInput 
+                style={styles.input} 
+                placeholder="0.00" 
+                placeholderTextColor="#94a3b8" 
+                keyboardType="numeric" 
+                value={form.balance} 
+                onChangeText={(t: string) => setForm({...form, balance: t})} 
+              />
+            </View>
+          </View>
           
           <TouchableOpacity style={styles.saveBtn} onPress={saveCustomer}>
             <Text style={styles.saveText}>Create Account</Text>
@@ -65,6 +102,11 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 13, fontWeight: '700', color: Theme.text, marginBottom: 8, marginLeft: 5 },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 15, paddingHorizontal: 15 },
+  balanceTypeRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  typeBtn: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
+  typeBtnActive: { backgroundColor: Theme.primary, borderColor: Theme.primary },
+  typeBtnText: { fontSize: 12, fontWeight: 'bold', color: Theme.textLight },
+  typeBtnTextActive: { color: '#fff' },
   icon: { marginRight: 10 },
   input: { flex: 1, paddingVertical: 15, fontSize: 16, color: Theme.text },
   saveBtn: { backgroundColor: Theme.primary, padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },

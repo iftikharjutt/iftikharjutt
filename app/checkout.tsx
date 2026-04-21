@@ -53,8 +53,8 @@ export default function Checkout() {
         "Order Saved", 
         "Where would you like to send the receipt?",
         [
-          { text: "Customer WhatsApp", onPress: () => sendWhatsApp(newBalance, paid, 'customer') },
-          { text: "Shop WhatsApp", onPress: () => sendWhatsApp(newBalance, paid, 'shop') },
+          { text: "WhatsApp", onPress: () => sendWhatsApp(newBalance, paid, 'customer') },
+          { text: "SMS (Offline)", onPress: () => sendSMS(newBalance, paid) },
           { text: "Finish", onPress: () => { router.dismissAll(); router.replace('/(tabs)'); } }
         ]
       );
@@ -64,15 +64,13 @@ export default function Checkout() {
     }
   };
 
-  const sendWhatsApp = (newBal: number, paid: number, target: 'customer' | 'shop') => {
-    const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
-    const shopWhatsAppSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_whatsapp'")[0] as any;
-    
-    const msg = `
-🌟 *${(shopNameSet?.value || 'IFTIKHAR BROTHERS').toUpperCase()}*
+  const getReceiptMessage = (newBal: number, paid: number, shopName: string) => {
+    return `
+🌟 *${shopName.toUpperCase()}*
 📍 _Purani Galla Mandi_
 ━━━━━━━━━━━━━━━━━━
-👤 *CUSTOMER:* ${customer.name}
+👤 *SHOP:* ${customer.name}
+👤 *PERSON:* ${customer.person_name || 'N/A'}
 📅 *DATE:* ${new Date().toLocaleDateString()}
 ━━━━━━━━━━━━━━━━━━
 📦 *ITEMS:*
@@ -84,6 +82,26 @@ CASH PAID  : *Rs.${paid.toFixed(0)}*
 KHATA BAL  : *Rs.${newBal.toFixed(0)}*
 ━━━━━━━━━━━━━━━━━━
 _Thank you for your business!_`;
+  };
+
+  const sendSMS = (newBal: number, paid: number) => {
+    const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
+    const shopName = shopNameSet?.value || 'IFTIKHAR BROTHERS';
+    const msg = getReceiptMessage(newBal, paid, shopName).replace(/\*/g, '').replace(/_/g, ''); // Remove markdown for SMS
+    const phone = customer.contact;
+    const url = `sms:${phone}${phone.includes('?') ? '&' : '?'}body=${encodeURIComponent(msg)}`;
+    Linking.openURL(url).then(() => {
+        router.dismissAll();
+        router.replace('/(tabs)');
+    });
+  };
+
+  const sendWhatsApp = (newBal: number, paid: number, target: 'customer' | 'shop') => {
+    const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
+    const shopWhatsAppSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_whatsapp'")[0] as any;
+    const shopName = shopNameSet?.value || 'IFTIKHAR BROTHERS';
+    
+    const msg = getReceiptMessage(newBal, paid, shopName);
 
     let phone = customer.contact;
     if (target === 'shop') {
