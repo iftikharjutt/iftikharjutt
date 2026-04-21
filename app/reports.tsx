@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Alert, Modal, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import db from './db';
@@ -16,7 +17,10 @@ const Theme = {
 };
 
 export default function Reports() {
+  const router = useRouter();
   const [tab, setTab] = useState<'stats' | 'bills' | 'recoveries'>('stats');
+  const [areaModalVisible, setAreaModalVisible] = useState(false);
+  const [areas, setAreas] = useState<string[]>([]);
   const [stats, setStats] = useState({
     totalSales: 0,
     totalRecoveries: 0,
@@ -30,7 +34,17 @@ export default function Reports() {
     fetchStats();
     fetchBills();
     fetchRecoveries();
+    fetchAreas();
   }, []);
+
+  const fetchAreas = () => {
+    try {
+      const data = db.getAllSync("SELECT DISTINCT COALESCE(address, 'General') as area FROM customers WHERE address IS NOT NULL AND address != ''") as any[];
+      setAreas(data.map(i => i.area));
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchStats = () => {
     try {
@@ -56,25 +70,29 @@ export default function Reports() {
   };
 
   const fetchBills = () => {
-    const data = db.getAllSync(`
-      SELECT o.*, c.name as customer_name 
-      FROM orders o 
-      JOIN customers c ON o.customer_id = c.id 
-      ORDER BY o.timestamp DESC 
-      LIMIT 20
-    `);
-    setBills(data);
+    try {
+      const data = db.getAllSync(`
+        SELECT o.*, c.name as customer_name 
+        FROM orders o 
+        JOIN customers c ON o.customer_id = c.id 
+        ORDER BY o.timestamp DESC 
+        LIMIT 20
+      `);
+      setBills(data);
+    } catch (e) { console.error(e); }
   };
 
   const fetchRecoveries = () => {
-    const data = db.getAllSync(`
-      SELECT r.*, c.name as customer_name 
-      FROM recoveries r 
-      JOIN customers c ON r.customer_id = c.id 
-      ORDER BY r.timestamp DESC 
-      LIMIT 20
-    `);
-    setRecoveries(data);
+    try {
+      const data = db.getAllSync(`
+        SELECT r.*, c.name as customer_name 
+        FROM recoveries r 
+        JOIN customers c ON r.customer_id = c.id 
+        ORDER BY r.timestamp DESC 
+        LIMIT 20
+      `);
+      setRecoveries(data);
+    } catch (e) { console.error(e); }
   };
 
   const generatePDF = async () => {
@@ -122,59 +140,59 @@ export default function Reports() {
   };
 
   const printBill = async (bill: any) => {
-    const items = db.getAllSync('SELECT * FROM order_items WHERE order_id = ?', [bill.id]) as any[];
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: 'Helvetica'; padding: 10px; color: #000; }
-            .center { text-align: center; }
-            .header { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; }
-            th { border-bottom: 1px solid #000; text-align: left; }
-            td { padding: 5px 0; }
-            .total-row { border-top: 1px solid #000; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header center">
-            <h2 style="margin:0">IFTIKHAR BROTHERS</h2>
-            <p style="margin:5px 0">Purani Galla Mandi</p>
-            <p><strong>INVOICE #${bill.id}</strong></p>
-          </div>
-          <p><strong>Customer:</strong> ${bill.customer_name}</p>
-          <p><strong>Date:</strong> ${new Date(bill.timestamp).toLocaleString()}</p>
-          <table>
-            <thead>
-              <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
-            </thead>
-            <tbody>
-              ${items.map(i => `
-                <tr>
-                  <td>${i.product_name}</td>
-                  <td>${i.quantity} ${i.unit}</td>
-                  <td>${i.rate}</td>
-                  <td>${i.subtotal}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div style="margin-top:10px; border-top:1px dashed #000; padding-top:10px">
-            <div style="display:flex; justify-content:space-between">
-              <span>Grand Total:</span> <span>Rs. ${bill.total_amount}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between">
-              <span>Cash Paid:</span> <span>Rs. ${bill.cash_paid}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold">
-              <span>Balance:</span> <span>Rs. ${bill.total_amount - bill.cash_paid}</span>
-            </div>
-          </div>
-          <p class="center" style="margin-top:30px">--- Thank You ---</p>
-        </body>
-      </html>
-    `;
     try {
+      const items = db.getAllSync('SELECT * FROM order_items WHERE order_id = ?', [bill.id]) as any[];
+      const html = `
+        <html>
+          <head>
+            <style>
+              body { font-family: 'Helvetica'; padding: 10px; color: #000; }
+              .center { text-align: center; }
+              .header { border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+              table { width: 100%; border-collapse: collapse; }
+              th { border-bottom: 1px solid #000; text-align: left; }
+              td { padding: 5px 0; }
+              .total-row { border-top: 1px solid #000; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="header center">
+              <h2 style="margin:0">IFTIKHAR BROTHERS</h2>
+              <p style="margin:5px 0">Purani Galla Mandi</p>
+              <p><strong>INVOICE #${bill.id}</strong></p>
+            </div>
+            <p><strong>Customer:</strong> ${bill.customer_name}</p>
+            <p><strong>Date:</strong> ${new Date(bill.timestamp).toLocaleString()}</p>
+            <table>
+              <thead>
+                <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
+              </thead>
+              <tbody>
+                ${items.map(i => `
+                  <tr>
+                    <td>${i.product_name}</td>
+                    <td>${i.quantity} ${i.unit}</td>
+                    <td>${i.rate}</td>
+                    <td>${i.subtotal}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            <div style="margin-top:10px; border-top:1px dashed #000; padding-top:10px">
+              <div style="display:flex; justify-content:space-between">
+                <span>Grand Total:</span> <span>Rs. ${bill.total_amount}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between">
+                <span>Cash Paid:</span> <span>Rs. ${bill.cash_paid}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-weight:bold">
+                <span>Balance:</span> <span>Rs. ${bill.total_amount - bill.cash_paid}</span>
+              </div>
+            </div>
+            <p class="center" style="margin-top:30px">--- Thank You ---</p>
+          </body>
+        </html>
+      `;
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
     } catch (e) { Alert.alert("Error", "Print Failed"); }
@@ -205,22 +223,13 @@ export default function Reports() {
     } catch (e) { Alert.alert("Error", "Print Failed"); }
   };
 
-  const generateAreaReport = async () => {
+  const generateAreaReport = async (selectedArea: string | null) => {
     try {
-      const areaStats = db.getAllSync(`
-        SELECT 
-          COALESCE(address, 'General') as area, 
-          SUM(balance) as total_pending,
-          (
-            SELECT SUM(r.amount) 
-            FROM recoveries r 
-            JOIN customers c2 ON r.customer_id = c2.id 
-            WHERE COALESCE(c2.address, 'General') = COALESCE(c1.address, 'General')
-          ) as total_recovered
-        FROM customers c1
-        GROUP BY area
-        ORDER BY area ASC
-      `) as any[];
+      const query = selectedArea 
+        ? `SELECT address as area, balance as total_pending, (SELECT SUM(amount) FROM recoveries WHERE customer_id = c.id) as total_recovered FROM customers c WHERE address = ?`
+        : `SELECT COALESCE(address, 'General') as area, SUM(balance) as total_pending, (SELECT SUM(r.amount) FROM recoveries r JOIN customers c2 ON r.customer_id = c2.id WHERE COALESCE(c2.address, 'General') = COALESCE(c1.address, 'General')) as total_recovered FROM customers c1 GROUP BY area`;
+      
+      const areaStats = db.getAllSync(query, selectedArea ? [selectedArea] : []) as any[];
 
       const html = `
         <html>
@@ -239,7 +248,7 @@ export default function Reports() {
           <body>
             <div class="header">
               <h1>Area-Wise Recovery Report</h1>
-              <p style="text-align: center;">Iftikhar Brothers - Generated on ${new Date().toLocaleDateString()}</p>
+              <p style="text-align: center;">Iftikhar Brothers - ${selectedArea || 'All Areas'}</p>
             </div>
             <table>
               <thead>
@@ -258,13 +267,6 @@ export default function Reports() {
                   </tr>
                 `).join('')}
               </tbody>
-              <tfoot>
-                <tr style="background-color: #f8fafc; font-weight: bold;">
-                  <td>TOTAL</td>
-                  <td>Rs. ${areaStats.reduce((acc, s) => acc + (s.total_recovered || 0), 0).toLocaleString()}</td>
-                  <td>Rs. ${areaStats.reduce((acc, s) => acc + (s.total_pending || 0), 0).toLocaleString()}</td>
-                </tr>
-              </tfoot>
             </table>
           </body>
         </html>
@@ -272,14 +274,22 @@ export default function Reports() {
 
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      setAreaModalVisible(false);
     } catch (e) {
-      console.error(e);
       Alert.alert("Error", "Failed to generate area report");
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Business Reports</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <View style={styles.tabBar}>
         <TouchableOpacity style={[styles.tab, tab === 'stats' && styles.activeTab]} onPress={() => setTab('stats')}>
           <Text style={[styles.tabText, tab === 'stats' && styles.activeTabText]}>Stats</Text>
@@ -359,7 +369,7 @@ export default function Reports() {
         ))}
       </ScrollView>
 
-      <Modal visible={areaModalVisible} transparent animationType="slide">
+      <Modal visible={areaModalVisible} transparent animationType="slide" onRequestClose={() => setAreaModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Area for Report</Text>
@@ -388,6 +398,9 @@ export default function Reports() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.background },
+  header: { backgroundColor: Theme.primary, height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15 },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
   tabBar: { flexDirection: 'row', backgroundColor: '#fff', padding: 5, margin: 15, borderRadius: 15, elevation: 2 },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 12 },
   activeTab: { backgroundColor: Theme.primary },
