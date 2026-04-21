@@ -16,33 +16,41 @@ const Theme = {
 export default function Login() {
   const router = useRouter();
   const [pin, setPin] = useState('');
-  const [storedPin, setStoredPin] = useState('1234');
+  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
       const res = db.getAllSync("SELECT value FROM settings WHERE key = 'app_pin'")[0] as any;
-      if (res?.value) setStoredPin(res.value);
+      if (res?.value) {
+        setStoredPin(res.value);
+      } else {
+        setStoredPin('1234'); // Safe Fallback
+      }
     } catch (e) {
-      console.error("Login: DB check failed", e);
+      console.error("LOGIN_DB_ERROR:", e);
+      setStoredPin('1234');
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   const handlePress = (num: string) => {
-    if (pin.length < 4) {
-      const newPin = pin + num;
-      setPin(newPin);
-      
-      if (newPin.length === 4) {
-        // Use timeout to allow UI to fill the 4th dot before navigation/alert
-        setTimeout(() => {
-          if (newPin === storedPin) {
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert("Incorrect PIN", "Please try again.");
-            setPin('');
-          }
-        }, 100);
-      }
+    if (isLoading || pin.length >= 4) return;
+
+    const newPin = pin + num;
+    setPin(newPin);
+    
+    if (newPin.length === 4) {
+      // Small UI delay for dot filling feedback
+      setTimeout(() => {
+        if (newPin === storedPin) {
+          router.replace('/(tabs)');
+        } else {
+          Alert.alert("Access Denied", "Incorrect PIN entered.");
+          setPin('');
+        }
+      }, 100);
     }
   };
 

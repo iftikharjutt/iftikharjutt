@@ -31,27 +31,30 @@ export default function Checkout() {
     const newBalance = customer.balance + remaining;
 
     try {
-      // 1. Save Order Header
-      const res = db.runSync(
-        'INSERT INTO orders (customer_id, total_amount, cash_paid) VALUES (?, ?, ?)', 
-        [customer.id, total, paid]
-      );
-      const orderId = (res as any).lastInsertRowId;
-
-      // 2. Save Order Items
-      cart.forEach((i: any) => {
-        db.runSync(
-          'INSERT INTO order_items (order_id, product_name, unit, quantity, rate, subtotal) VALUES (?, ?, ?, ?, ?, ?)', 
-          [orderId, i.name, i.unit, i.qty, i.price, i.subtotal]
+      // ATOMIC TRANSACTION: Ensuring data consistency
+      db.withTransactionSync(() => {
+        // 1. Save Order Header
+        const res = db.runSync(
+          'INSERT INTO orders (customer_id, total_amount, cash_paid) VALUES (?, ?, ?)', 
+          [customer.id, total, paid]
         );
+        const orderId = (res as any).lastInsertRowId;
+
+        // 2. Save Order Items
+        for (const item of cart) {
+          db.runSync(
+            'INSERT INTO order_items (order_id, product_name, unit, quantity, rate, subtotal) VALUES (?, ?, ?, ?, ?, ?)', 
+            [orderId, item.name, item.unit, item.qty, item.price, item.subtotal]
+          );
+        }
+
+        // 3. Update Customer Balance
+        db.runSync('UPDATE customers SET balance = ? WHERE id = ?', [newBalance, customer.id]);
       });
 
-      // 3. Update Customer Balance
-      db.runSync('UPDATE customers SET balance = ? WHERE id = ?', [newBalance, customer.id]);
-
       Alert.alert(
-        "Order Saved", 
-        "Where would you like to send the receipt?",
+        "Order Saved Successfully", 
+        "Customer balance has been updated. Send receipt?",
         [
           { text: "WhatsApp", onPress: () => sendWhatsApp(newBalance, paid, 'customer') },
           { text: "SMS (Offline)", onPress: () => sendSMS(newBalance, paid) },
@@ -59,8 +62,8 @@ export default function Checkout() {
         ]
       );
     } catch (e) { 
-      console.error(e);
-      Alert.alert("Error", "Save Failed"); 
+      console.error("FATAL_CHECKOUT_ERROR:", e);
+      Alert.alert("Critical Error", "The order could not be saved. Please try again."); 
     }
   };
 
