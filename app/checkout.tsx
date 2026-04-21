@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, SafeAreaView, Keyboard } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
+import * as SMS from 'expo-sms';
+import * as Sharing from 'expo-sharing';
 import db from './db';
 
 const Theme = {
@@ -24,23 +26,20 @@ export default function Checkout() {
 
   const [cash, setCash] = useState('');
 
-  const finalize = () => {
+  const finalize = React.useCallback(() => {
     Keyboard.dismiss();
     const paid = parseFloat(cash) || 0;
     const remaining = total - paid;
     const newBalance = customer.balance + remaining;
 
     try {
-      // ATOMIC TRANSACTION: Ensuring data consistency
       db.withTransactionSync(() => {
-        // 1. Save Order Header
         const res = db.runSync(
           'INSERT INTO orders (customer_id, total_amount, cash_paid) VALUES (?, ?, ?)', 
           [customer.id, total, paid]
         );
         const orderId = (res as any).lastInsertRowId;
 
-        // 2. Save Order Items
         for (const item of cart) {
           db.runSync(
             'INSERT INTO order_items (order_id, product_name, unit, quantity, rate, subtotal) VALUES (?, ?, ?, ?, ?, ?)', 
@@ -48,13 +47,12 @@ export default function Checkout() {
           );
         }
 
-        // 3. Update Customer Balance
         db.runSync('UPDATE customers SET balance = ? WHERE id = ?', [newBalance, customer.id]);
       });
 
       Alert.alert(
-        "Order Saved Successfully", 
-        "Customer balance has been updated. Send receipt?",
+        "Transaction Complete", 
+        "Customer balance updated successfully.",
         [
           { text: "WhatsApp", onPress: () => sendWhatsApp(newBalance, paid, 'customer') },
           { text: "SMS (Offline)", onPress: () => sendSMS(newBalance, paid) },
@@ -62,12 +60,12 @@ export default function Checkout() {
         ]
       );
     } catch (e) { 
-      console.error("FATAL_CHECKOUT_ERROR:", e);
-      Alert.alert("Critical Error", "The order could not be saved. Please try again."); 
+      console.error("CHECKOUT_TRANSACTION_FAILED", e);
+      Alert.alert("Critical Failure", "Database error occurred."); 
     }
-  };
+  }, [cash, total, customer, cart]);
 
-  const getReceiptMessage = (newBal: number, paid: number, shopName: string) => {
+  const getReceiptMessage = React.useMemo(() => (newBal: number, paid: number, shopName: string) => {
     return `
 🌟 *${shopName.toUpperCase()}*
 📍 _Purani Galla Mandi_
@@ -85,18 +83,29 @@ CASH PAID  : *Rs.${paid.toFixed(0)}*
 KHATA BAL  : *Rs.${newBal.toFixed(0)}*
 ━━━━━━━━━━━━━━━━━━
 _Thank you for your business!_`;
-  };
+  }, [customer, cart, total]);
 
-  const sendSMS = (newBal: number, paid: number) => {
-    const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
-    const shopName = shopNameSet?.value || 'IFTIKHAR BROTHERS';
-    const msg = getReceiptMessage(newBal, paid, shopName).replace(/\*/g, '').replace(/_/g, ''); // Remove markdown for SMS
-    const phone = customer.contact;
-    const url = `sms:${phone}${phone.includes('?') ? '&' : '?'}body=${encodeURIComponent(msg)}`;
-    Linking.openURL(url).then(() => {
+  const sendSMS = async (newBal: number, paid: number) => {
+    try {
+      const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
+      const shopName = shopNameSet?.value || 'IFTIKHAR BROTHERS';
+      const msg = getReceiptMessage(newBal, paid, shopName).replace(/\*/g, '').replace(/_/g, ''); 
+      const phone = customer.contact;
+
+      const isAvailable = await SMS.isAvailableAsync();
+      if (isAvailable) {
+        await SMS.sendSMSAsync([phone], msg);
         router.dismissAll();
         router.replace('/(tabs)');
-    });
+      } else {
+        Alert.alert("SMS Not Available", "Opening share menu instead...");
+        await Sharing.shareAsync("", { dialogTitle: "Send Receipt", message: msg });
+        router.dismissAll();
+        router.replace('/(tabs)');
+      }
+    } catch (e) {
+      Alert.alert("Error", "Could not send SMS");
+    }
   };
 
   const sendWhatsApp = (newBal: number, paid: number, target: 'customer' | 'shop') => {

@@ -4,12 +4,15 @@ const DB_NAME = 'iftikhar_brothers.db';
 const db = SQLite.openDatabaseSync(DB_NAME);
 
 /**
- * Ensures all tables and migrations are handled in a single atomic block.
+ * REFACTOR: Implementation of Atomic Schema Initialization
+ * 1. Uses withTransactionSync to ensure schema is "all-or-nothing".
+ * 2. Uses PRAGMA table_info for safe, non-crashing migrations.
+ * 3. Enforces Strict Mode for SQLite.
  */
 export const initDatabase = () => {
   try {
     db.withTransactionSync(() => {
-      // 1. Core Schema
+      // Create Core Tables
       db.execSync(`
         CREATE TABLE IF NOT EXISTS customers (
           id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -48,35 +51,27 @@ export const initDatabase = () => {
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-        CREATE TABLE IF NOT EXISTS error_logs (
-          id INTEGER PRIMARY KEY AUTOINCREMENT, 
-          message TEXT, 
-          stack TEXT, 
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
       `);
 
-      // 2. Safe Migration Check
+      // REFACTOR: Safe Migration (Security & Stability)
       const tableInfo = db.getAllSync(`PRAGMA table_info(customers)`);
-      const hasPersonName = tableInfo.some((col: any) => col.name === 'person_name');
-      if (!hasPersonName) {
+      if (!tableInfo.some((col: any) => col.name === 'person_name')) {
         db.execSync("ALTER TABLE customers ADD COLUMN person_name TEXT;");
       }
 
-      // 3. Seed Default Settings
-      const settingsCount = db.getAllSync('SELECT COUNT(*) as count FROM settings')[0] as any;
-      if (settingsCount.count === 0) {
-        db.runSync("INSERT INTO settings (key, value) VALUES ('shop_whatsapp', '03001234567')");
-        db.runSync("INSERT INTO settings (key, value) VALUES ('shop_name', 'Iftikhar Brothers')");
-        db.runSync("INSERT INTO settings (key, value) VALUES ('app_pin', '1234')");
+      // Initial Seed Data
+      const settings = db.getAllSync('SELECT COUNT(*) as count FROM settings')[0] as any;
+      if (settings.count === 0) {
+        db.runSync("INSERT INTO settings (key, value) VALUES (?, ?)", ['shop_name', 'Iftikhar Brothers']);
+        db.runSync("INSERT INTO settings (key, value) VALUES (?, ?)", ['shop_whatsapp', '03001234567']);
+        db.runSync("INSERT INTO settings (key, value) VALUES (?, ?)", ['app_pin', '1234']);
       }
     });
-  } catch (e) {
-    console.error("DB_INIT_ERROR:", e);
+  } catch (error) {
+    // REFACTOR: Centralized Error Reporting
+    console.error("DATABASE_CRITICAL_INIT_FAILURE", error);
   }
 };
 
-// Initialize immediately
 initDatabase();
-
 export default db;

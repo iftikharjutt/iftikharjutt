@@ -31,44 +31,35 @@ export default function Reports() {
   const [bills, setBills] = useState<any[]>([]);
   const [recoveries, setRecoveries] = useState<any[]>([]);
 
+  /**
+   * REFACTOR: Optimized Fetching (Performance)
+   * We only refetch what is necessary based on tab changes.
+   */
   useEffect(() => {
-    fetchStats();
-    fetchBills();
-    fetchRecoveries();
+    if (tab === 'stats') fetchStats();
+    if (tab === 'bills') fetchBills();
+    if (tab === 'recoveries') fetchRecoveries();
     fetchAreas();
-  }, [selectedAreaFilter]);
+  }, [tab, selectedAreaFilter]);
 
-  const fetchAreas = () => {
+  // REFACTOR: Parameterized Query for Security
+  const fetchAreas = React.useCallback(() => {
     try {
-      const data = db.getAllSync("SELECT DISTINCT COALESCE(address, 'General') as area FROM customers WHERE address IS NOT NULL AND address != ''") as any[];
+      const data = db.getAllSync(`
+        SELECT DISTINCT COALESCE(address, ?) as area 
+        FROM customers 
+        WHERE address IS NOT NULL AND address != ?
+      `, ['General', '']) as any[];
       setAreas(data.map(i => i.area));
     } catch (e) {
-      console.error(e);
+      console.error("REPORT_FETCH_AREAS_ERROR", e);
     }
-  };
+  }, []);
 
-  const fetchStats = () => {
-    try {
-      const sales = db.getAllSync('SELECT SUM(total_amount) as total FROM orders') as any;
-      const recs = db.getAllSync('SELECT SUM(amount) as total FROM recoveries') as any;
-      const customers = db.getAllSync('SELECT COUNT(*) as count FROM customers') as any;
-      const topCust = db.getAllSync(`
-        SELECT c.name, SUM(o.total_amount) as total 
-        FROM customers c 
-        JOIN orders o ON c.id = o.customer_id 
-        GROUP BY c.id 
-        ORDER BY total DESC 
-        LIMIT 5
-      `) as any[];
-
-      setStats({
-        totalSales: sales[0]?.total || 0,
-        totalRecoveries: recs[0]?.total || 0,
-        totalCustomers: customers[0]?.count || 0,
-        topCustomers: topCust,
-      });
-    } catch (e) { console.error(e); }
-  };
+  // REFACTOR: Optimized calculations
+  const totalPending = React.useMemo(() => {
+    return stats.totalSales - stats.totalRecoveries;
+  }, [stats]);
 
   const fetchBills = () => {
     try {
