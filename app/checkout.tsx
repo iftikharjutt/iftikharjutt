@@ -89,7 +89,13 @@ _Thank you for your business!_`;
     try {
       const shopNameSet = db.getAllSync("SELECT value FROM settings WHERE key = 'shop_name'")[0] as any;
       const shopName = shopNameSet?.value || 'IFTIKHAR BROTHERS';
-      const msg = getReceiptMessage(newBal, paid, shopName).replace(/\*/g, '').replace(/_/g, ''); 
+      
+      // Strip markdown, emojis, and heavy unicode to prevent SMS to MMS conversion
+      const msg = getReceiptMessage(newBal, paid, shopName)
+        .replace(/[*_]/g, '')
+        .replace(/[🌟📍👤📅📦💰]/gu, '')
+        .replace(/━━━━━━━━━━━━━━━━━━/g, '------------------');
+
       const phone = customer.contact;
 
       const isAvailable = await SMS.isAvailableAsync();

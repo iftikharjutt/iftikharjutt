@@ -111,7 +111,7 @@ export default function Reports() {
         </head>
         <body>
           <div class="header">
-            <h1>Iftikhar Brothers Keryana Store</h1>
+            <h1>${shopName}</h1>
             <p style="text-align: center;">Business Summary Report - ${new Date().toLocaleDateString()}</p>
           </div>
           <div class="stat-box">
@@ -157,7 +157,7 @@ export default function Reports() {
           </head>
           <body>
             <div class="header center">
-              <h2 style="margin:0">IFTIKHAR BROTHERS</h2>
+              <h2 style="margin:0; text-transform: uppercase;">${shopName}</h2>
               <p style="margin:5px 0">Purani Galla Mandi</p>
               <p><strong>INVOICE #${bill.id}</strong></p>
             </div>
@@ -202,7 +202,7 @@ export default function Reports() {
     const html = `
       <html>
         <body style="font-family: 'Helvetica'; padding: 40px; text-align: center;">
-          <h1 style="margin:0">IFTIKHAR BROTHERS</h1>
+          <h1 style="margin:0; text-transform: uppercase;">${shopName}</h1>
           <p>Purani Galla Mandi</p>
           <div style="border: 2px solid #000; padding: 20px; margin-top: 30px; border-radius: 10px;">
             <h2 style="text-decoration: underline;">RECOVERY RECEIPT</h2>
@@ -248,7 +248,7 @@ export default function Reports() {
           <body>
             <div class="header">
               <h1>Area-Wise Recovery Report</h1>
-              <p style="text-align: center;">Iftikhar Brothers - ${selectedArea || 'All Areas'}</p>
+              <p style="text-align: center;">${shopName} - ${selectedArea || 'All Areas'}</p>
             </div>
             <table>
               <thead>
@@ -376,18 +376,29 @@ export default function Reports() {
                  ))}
                </ScrollView>
             </View>
-            {recoveries.map((r, i) => (
-              <TouchableOpacity key={i} style={styles.custRow} onPress={() => printRecovery(r)}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.custName}>{r.customer_name}</Text>
-                  <Text style={styles.miniLabel}>{r.area} • {new Date(r.timestamp).toLocaleDateString()}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={[styles.custTotal, { color: Theme.secondary }]}>Rs. {r.amount.toLocaleString()}</Text>
-                  <MaterialCommunityIcons name="printer" size={16} color={Theme.accent} />
-                </View>
-              </TouchableOpacity>
-            ))}
+            {recoveries.map((r, i) => {
+              const showHeader = !selectedAreaFilter && (i === 0 || recoveries[i-1].area !== r.area);
+              return (
+                <React.Fragment key={i}>
+                  {showHeader && (
+                    <View style={styles.areaHeader}>
+                      <MaterialCommunityIcons name="map-marker" size={18} color={Theme.primary} />
+                      <Text style={styles.areaHeaderText}>{r.area}</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity style={styles.custRow} onPress={() => printRecovery(r)}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.custName}>{r.customer_name}</Text>
+                      <Text style={styles.miniLabel}>{r.area} • {new Date(r.timestamp).toLocaleDateString()}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[styles.custTotal, { color: Theme.secondary }]}>Rs. {r.amount.toLocaleString()}</Text>
+                      <MaterialCommunityIcons name="printer" size={16} color={Theme.accent} />
+                    </View>
+                  </TouchableOpacity>
+                </React.Fragment>
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -454,5 +465,14 @@ const styles = StyleSheet.create({
   areaItem: { flexDirection: 'row', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   areaItemText: { fontSize: 16, color: Theme.text, marginLeft: 15 },
   closeBtn: { marginTop: 10, padding: 15, alignItems: 'center' },
-  closeBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 }
+  closeBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  areaHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 5, marginTop: 10, marginBottom: 5 },
+  areaHeaderText: { fontSize: 14, fontWeight: 'bold', color: '#0f172a', marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 }
+});
+ing: 18, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  areaItemText: { fontSize: 16, color: Theme.text, marginLeft: 15 },
+  closeBtn: { marginTop: 10, padding: 15, alignItems: 'center' },
+  closeBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  areaHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 5, marginTop: 10, marginBottom: 5 },
+  areaHeaderText: { fontSize: 14, fontWeight: 'bold', color: '#0f172a', marginLeft: 5, textTransform: 'uppercase', letterSpacing: 1 }
 });

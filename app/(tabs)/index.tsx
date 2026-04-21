@@ -59,7 +59,7 @@ export default function Dashboard() {
         <View style={styles.header}>
           <View>
             <Text style={styles.welcome}>Welcome Back,</Text>
-            <Text style={styles.shopName}>Iftikhar Brothers</Text>
+            <Text style={styles.shopName}>{shopName}</Text>
           </View>
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/settings')}>
             <MaterialCommunityIcons name="cloud-sync" size={24} color="#fff" />
@@ -97,5 +97,8 @@ const styles = StyleSheet.create({
   card: { width: '47%', backgroundColor: '#fff', padding: 20, borderRadius: 20, marginBottom: 15, alignItems: 'center', elevation: 2 },
   iconContainer: { width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   cardTitle: { fontSize: 14, fontWeight: 'bold', color: Theme.text, textAlign: 'center' },
+  profileBtn: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' }
+});
+fontSize: 14, fontWeight: 'bold', color: Theme.text, textAlign: 'center' },
   profileBtn: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' }
 });

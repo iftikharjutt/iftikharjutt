@@ -39,9 +39,10 @@ export default function AddCustomer() {
         const { contact } = await Contacts.presentContactPickerAsync();
         if (contact) {
           const name = contact.name || '';
-          const phone = contact.phoneNumbers && contact.phoneNumbers.length > 0 
-            ? contact.phoneNumbers[0].number?.replace(/\s/g, '') 
-            : '';
+          let phone = '';
+          if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
+            phone = contact.phoneNumbers[0].digits || contact.phoneNumbers[0].number?.replace(/[\s-()]/g, '') || '';
+          }
           
           setForm(prev => ({
             ...prev,
